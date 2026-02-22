@@ -477,3 +477,247 @@
 //   );
 // }
  
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import Navbar from "../components/navbar";
+import API from "../services/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { toast } from "react-toastify";
+
+export default function Profile() {
+  const router = useRouter();
+  const [token, setToken] = useState(null);
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [profilePic, setProfilePic] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [role, setRole] = useState("");
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const t = localStorage.getItem("token");
+      if (!t) router.push("/login");
+      else {
+        setToken(t);
+        fetchProfile(t);
+      }
+    }
+  }, []);
+
+  const fetchProfile = async (t) => {
+    try {
+      const res = await API.get("/users/me", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+
+      setUsername(res.data.username);
+      setBio(res.data.bio || "");
+      setPreview(
+        res.data.profile_pic
+          ? `http://localhost:8002/${res.data.profile_pic}`
+          : ""
+      );
+      setRole(res.data.role);
+      setRecipes(res.data.recipes || []);
+    } catch (err) {
+      toast.error("Failed to load profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setProfilePic(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async () => {
+    if (!username) return toast.warning("Username cannot be empty");
+
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("bio", bio);
+    if (profilePic) formData.append("profile_pic", profilePic);
+
+    try {
+      await API.patch("/users/me", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      toast.success("Profile updated successfully");
+    } catch {
+      toast.error("Failed to update profile");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await API.delete(`/recipes/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRecipes(recipes.filter((r) => r.id !== id));
+      toast.success("Recipe deleted");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
+  if (loading)
+    return <p className="text-center mt-20 text-white">Loading...</p>;
+
+  return (
+    <>
+      {/* Background */}
+      <div className="fixed inset-0 -z-10">
+        <video autoPlay loop muted playsInline className="w-full h-full object-cover">
+          <source src="/bg1.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-black/60"></div>
+      </div>
+
+      <div className="relative z-10 min-h-screen">
+        <Navbar />
+
+        <div className="max-w-7xl mx-auto mt-16 px-6 grid md:grid-cols-3 gap-8">
+
+          {/* LEFT PANEL */}
+          <Card className="bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl p-6">
+            <CardContent className="flex flex-col items-center text-center space-y-4">
+              <img
+                src={
+                  preview ||
+                  "https://ui-avatars.com/api/?name=" + username
+                }
+                alt="avatar"
+                className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
+              />
+
+              <h2 className="text-xl font-bold">{username}</h2>
+              <p className="text-sm text-gray-500 capitalize">{role}</p>
+
+              <div className="w-full pt-4 border-t">
+                <div className="flex justify-between text-sm">
+                  <span>Recipes</span>
+                  <span className="font-semibold">
+                    {recipes.length}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* RIGHT PANEL */}
+          <div className="md:col-span-2 space-y-8">
+
+            {/* EDIT PROFILE */}
+            <Card className="bg-white/95 backdrop-blur-xl shadow-xl rounded-2xl p-6">
+              <h3 className="text-xl font-semibold mb-6">
+                Edit Profile
+              </h3>
+
+              <div className="space-y-5">
+                <Input
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+
+                <Textarea
+                  placeholder="Your bio..."
+                  rows={4}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                />
+
+                <div>
+                  <label className="text-sm text-gray-500">
+                    Profile Picture
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="mt-2"
+                  />
+                </div>
+
+                <Button onClick={handleSubmit} className="w-full">
+                  Save Changes
+                </Button>
+              </div>
+            </Card>
+
+            {/* RECIPES GRID */}
+            {role === "creator" && (
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Your Recipes
+                </h3>
+
+                {recipes.length === 0 ? (
+                  <p className="text-white/80">
+                    You haven't created any recipes yet.
+                  </p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    {recipes.map((recipe) => (
+                      <Card
+                        key={recipe.id}
+                        className="bg-white shadow-lg rounded-2xl hover:shadow-2xl transition-all"
+                      >
+                        <CardContent className="p-5 space-y-2">
+                          <h4 className="font-semibold text-lg">
+                            {recipe.title}
+                          </h4>
+
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {recipe.description}
+                          </p>
+
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>{recipe.cuisine || "N/A"}</span>
+                            <span>{recipe.difficulty || "N/A"}</span>
+                          </div>
+
+                          <div className="flex gap-2 pt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                router.push(`/create?id=${recipe.id}`)
+                              }
+                            >
+                              Edit
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                handleDelete(recipe.id)
+                              }
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

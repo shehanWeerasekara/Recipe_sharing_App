@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    volumes:
+      # Persistent SQLite database
+      - ./data/sqlite:/app
+      # Persistent uploaded images
+      - ./data/static:/app/static
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
