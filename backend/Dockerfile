@@ -13,4 +13,4 @@ RUN mkdir -p /app/static
 EXPOSE 8002
 
 # We run migrations at startup (or you can run them manually first)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]

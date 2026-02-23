@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -6,12 +6,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
 RUN npm run build
-RUN npm run export
 
-FROM nginx:alpine
+EXPOSE 3000
 
-COPY --from=builder /app/out /usr/share/nginx/html
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]
